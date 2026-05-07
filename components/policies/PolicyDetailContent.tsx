@@ -10,7 +10,6 @@ import { BRAND_PRIMARY } from "@/lib/branding";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { BalanceDisplay } from "@/components/shared/BalanceDisplay";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { CertificateModal } from "@/components/policies/CertificateModal";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -38,7 +37,6 @@ export function PolicyDetailContent({
   /** e.g. "/agent/claims" — when set, each claim row links to detail page */
   claimsBasePath?: string;
 }) {
-  const [certOpen, setCertOpen] = React.useState(false);
   const plan = findPlanByProductAndTier(policy.product_line, policy.tier);
   const principalCover = plan?.cover_amount ?? 0;
 
@@ -261,7 +259,13 @@ export function PolicyDetailContent({
             variant="outline"
             size="sm"
             className="flex-1"
-            onClick={() => setCertOpen(true)}
+            onClick={() =>
+              window.open(
+                `/certificate/${policy.policy_number}`,
+                "_blank",
+                "noopener,noreferrer"
+              )
+            }
           >
             <FileText className="size-4" />
             Print Certificate
@@ -300,14 +304,6 @@ export function PolicyDetailContent({
           </Button>
         </div>
       </div>
-
-      <CertificateModal
-        policy={policy}
-        client={client}
-        members={members}
-        isOpen={certOpen}
-        onClose={() => setCertOpen(false)}
-      />
     </>
   );
 }

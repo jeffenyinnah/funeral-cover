@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { MpesaSimulator } from "@/components/mpesa/MpesaSimulator";
-import { CertificateModal } from "@/components/policies/CertificateModal";
 import {
   Dialog,
   DialogContent,
@@ -86,12 +85,6 @@ export function PolicyWizard() {
   );
   const [policyNumber] = React.useState(() => generatePolicyNumber());
   const [successOpen, setSuccessOpen] = React.useState(false);
-  const [certOpen, setCertOpen] = React.useState(false);
-  const [issuedBundle, setIssuedBundle] = React.useState<{
-    policy: Policy;
-    client: Client;
-    members: PolicyMember[];
-  } | null>(null);
 
   const form = useForm<NewClientFormValues>({
     resolver: zodResolver(newClientFormSchema),
@@ -261,7 +254,6 @@ export function PolicyWizard() {
       status: "active",
     }));
     addPolicy(policy, savedMembers);
-    setIssuedBundle({ policy, client: selectedClient, members: savedMembers });
     toast.success("Policy issued successfully");
     setSuccessOpen(true);
   };
@@ -825,7 +817,11 @@ export function PolicyWizard() {
               className="w-full"
               onClick={() => {
                 setSuccessOpen(false);
-                setCertOpen(true);
+                window.open(
+                  `/certificate/${policyNumber}`,
+                  "_blank",
+                  "noopener,noreferrer"
+                );
               }}
             >
               Download Certificate
@@ -843,19 +839,6 @@ export function PolicyWizard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {issuedBundle && (
-        <CertificateModal
-          policy={issuedBundle.policy}
-          client={issuedBundle.client}
-          members={issuedBundle.members}
-          isOpen={certOpen}
-          onClose={() => {
-            setCertOpen(false);
-            router.push("/agent/policies");
-          }}
-        />
-      )}
     </div>
   );
 }
