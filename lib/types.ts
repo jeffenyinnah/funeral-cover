@@ -27,8 +27,8 @@ export interface Plan {
   single_premium: number;
   family_premium: number;
   cover_amount: number;
-  waiting_period_natural: 6;
-  waiting_period_accidental: 1;
+  waiting_period_natural: number;
+  waiting_period_accidental: number;
 }
 
 export interface Client {

@@ -27,7 +27,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" currentPath={pathname ?? ""} />
-      <main className="min-w-0 flex-1 overflow-x-auto p-4 md:p-6 lg:p-8">
+      <main className="min-w-0 flex-1 overflow-x-auto p-4 pt-18 md:pt-6 md:p-6 lg:p-8">
         {children}
       </main>
     </div>

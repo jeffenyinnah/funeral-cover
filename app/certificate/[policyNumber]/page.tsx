@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useData } from "@/context/DataContext";
 import { CertificatePageContent } from "@/components/policies/CertificateModal";
@@ -9,6 +9,11 @@ export default function CertificatePage() {
   const params = useParams<{ policyNumber: string }>();
   const policyNumber = decodeURIComponent(params.policyNumber ?? "");
   const { policies, clients, members } = useData();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const bundle = useMemo(() => {
     const policy = policies.find((p) => p.policy_number === policyNumber);
@@ -18,6 +23,12 @@ export default function CertificatePage() {
     const policyMembers = members.filter((m) => m.policy_id === policy.id);
     return { policy, client, policyMembers };
   }, [clients, members, policies, policyNumber]);
+
+  // Wait for client mount so DataContext has had a chance to merge
+  // localStorage records before declaring a policy not found.
+  if (!mounted) {
+    return null;
+  }
 
   if (!bundle) {
     return (

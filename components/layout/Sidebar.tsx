@@ -8,14 +8,16 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  LogOut,
+  Menu,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
   UserCircle,
   Users,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
@@ -53,150 +55,232 @@ export function Sidebar({
   const { logout, agentId } = useAuth();
   const { agents } = useData();
   const [collapsed, setCollapsed] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
-  // Hydration: read sidebar preference from localStorage once after mount.
   React.useEffect(() => {
     try {
       const v = window.localStorage.getItem(COLLAPSE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync UI with persisted preference post-hydration
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCollapsed(v === "1");
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }, []);
+
+  // Close mobile sidebar on route change
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [currentPath]);
 
   const toggle = () => {
     const next = !collapsed;
     setCollapsed(next);
-    try {
-      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
+    try { window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
   };
 
   const items = role === "admin" ? adminNav : agentNav;
   const agent = agents.find((a) => a.id === agentId);
-  const displayName =
-    role === "admin" ? "Administrator" : agent?.name ?? "Agent";
+  const displayName = role === "admin" ? "Administrator" : (agent?.name ?? "Agent");
   const initials =
-    displayName
-      .split(/\s+/)
-      .map((w) => w[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "BF";
+    displayName.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "BF";
 
-  return (
-    <aside
-      className={cn(
-        "flex h-full shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-200",
-        collapsed ? "w-[72px]" : "w-60"
-      )}
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-sidebar-border p-3">
-        <Link
-          href={role === "admin" ? "/admin" : "/agent"}
+  function isActive(href: string) {
+    return href === "/admin" || href === "/agent"
+      ? currentPath === href
+      : currentPath === href || currentPath.startsWith(href + "/");
+  }
+
+  function NavLink({ item, forceExpanded = false }: { item: NavItem; forceExpanded?: boolean }) {
+    const active = isActive(item.href);
+    const Icon = item.icon;
+    const showLabel = forceExpanded || !collapsed;
+    return (
+      <Link
+        href={item.href}
+        title={collapsed && !forceExpanded ? item.label : undefined}
+        className={cn(
+          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          showLabel ? "justify-start" : "justify-center px-2",
+          active
+            ? "bg-[#1892ff] text-white shadow-sm shadow-[#1892ff]/30"
+            : "text-slate-400 hover:bg-white/[0.07] hover:text-white"
+        )}
+      >
+        <Icon
           className={cn(
-            "flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight",
-            collapsed && "justify-center"
+            "shrink-0 transition-colors",
+            collapsed && !forceExpanded ? "size-5" : "size-4",
+            active ? "text-white" : "text-slate-500 group-hover:text-white"
           )}
-          style={{ color: BRAND_PRIMARY }}
-        >
-          <Image
-            src={LOGO_PATH}
-            alt=""
-            width={36}
-            height={36}
-            className="size-9 shrink-0 object-contain"
-            priority
-          />
-          {!collapsed && (
-            <span className="truncate font-sans leading-tight">{APP_NAME}</span>
-          )}
-        </Link>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="shrink-0"
-          onClick={toggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-        </Button>
-      </div>
+        />
+        {showLabel && <span className="truncate">{item.label}</span>}
+      </Link>
+    );
+  }
 
-      <nav className="flex flex-1 flex-col gap-0.5 p-2">
-        {items.map((item) => {
-          const active =
-            item.href === "/admin" || item.href === "/agent"
-              ? currentPath === item.href
-              : currentPath === item.href ||
-                currentPath.startsWith(item.href + "/");
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                active
-                  ? "border-l-2 bg-[#1892ff]/12 font-medium text-[#1892ff]"
-                  : "border-l-2 border-transparent text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                collapsed && "justify-center px-2"
-              )}
-              style={
-                active
-                  ? { borderLeftColor: BRAND_PRIMARY }
-                  : { borderLeftColor: "transparent" }
-              }
+  function UserSection({ forceExpanded = false }: { forceExpanded?: boolean }) {
+    const show = forceExpanded || !collapsed;
+    return (
+      <div className="border-t border-white/[0.08] p-3">
+        <div className={cn("mb-3 flex items-center gap-3", !show && "flex-col gap-2")}>
+          <Avatar className="size-8 shrink-0 ring-2 ring-white/10">
+            <AvatarFallback
+              className="text-xs font-semibold text-white"
+              style={{ background: `${BRAND_PRIMARY}55` }}
             >
-              <Icon className="size-4 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="border-t border-sidebar-border p-3">
-        <div
-          className={cn(
-            "mb-3 flex items-center gap-2",
-            collapsed && "flex-col"
-          )}
-        >
-          <Avatar className="size-9 shrink-0">
-            <AvatarFallback>{initials}</AvatarFallback>
+              {initials}
+            </AvatarFallback>
           </Avatar>
-          {!collapsed && (
+          {show && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{displayName}</p>
+              <p className="truncate text-sm font-medium text-white">{displayName}</p>
               <span
-                className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                style={{
-                  background: `${BRAND_PRIMARY}22`,
-                  color: BRAND_PRIMARY,
-                }}
+                className="inline-block rounded-full px-2 py-px text-[10px] font-semibold uppercase tracking-wider"
+                style={{ background: `${BRAND_PRIMARY}25`, color: BRAND_PRIMARY }}
               >
                 {role}
               </span>
             </div>
           )}
+          <button
+            type="button"
+            title="Logout"
+            onClick={() => { logout(); window.location.href = "/"; }}
+            className={cn(
+              "shrink-0 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-red-400",
+              show ? "ml-auto" : ""
+            )}
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
-        <Button
-          variant="outline"
-          className="w-full"
-          size="sm"
-          onClick={() => {
-            logout();
-            window.location.href = "/";
-          }}
-        >
-          {!collapsed ? "Logout" : "Out"}
-        </Button>
       </div>
+    );
+  }
+
+  // ── Desktop sidebar ────────────────────────────────────────────────────────
+  const desktopSidebar = (
+    <aside
+      className={cn(
+        "hidden md:flex h-screen sticky top-0 shrink-0 flex-col bg-[#0d1827] transition-[width] duration-200 ease-in-out",
+        collapsed ? "w-[72px]" : "w-60"
+      )}
+    >
+      {/* Header */}
+      <div className={cn(
+        "flex items-center border-b border-white/[0.08] px-3 py-4",
+        collapsed ? "justify-center" : "justify-between gap-2"
+      )}>
+        <Link
+          href={role === "admin" ? "/admin" : "/agent"}
+          className={cn(
+            "flex min-w-0 items-center gap-2.5",
+            collapsed && "justify-center"
+          )}
+        >
+          <Image
+            src={LOGO_PATH}
+            alt={APP_NAME}
+            width={32}
+            height={32}
+            className="size-8 shrink-0 rounded-md object-contain"
+            priority
+          />
+          {!collapsed && (
+            <span className="truncate text-sm font-semibold text-white leading-tight">
+              {APP_NAME}
+            </span>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="shrink-0 rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/[0.07] hover:text-slate-300"
+        >
+          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 py-3">
+        {items.map((item) => (
+          <NavLink key={item.href} item={item} />
+        ))}
+      </nav>
+
+      {/* User */}
+      <UserSection />
     </aside>
+  );
+
+  // ── Mobile header + overlay sidebar ───────────────────────────────────────
+  const mobileParts = (
+    <>
+      {/* Mobile top bar */}
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-white/[0.08] bg-[#0d1827] px-4 md:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-white/[0.07] hover:text-white"
+          aria-label="Open menu"
+        >
+          <Menu className="size-5" />
+        </button>
+        <Link href={role === "admin" ? "/admin" : "/agent"} className="flex items-center gap-2">
+          <Image src={LOGO_PATH} alt={APP_NAME} width={26} height={26} className="size-[26px] rounded object-contain" priority />
+          <span className="text-sm font-semibold text-white">{APP_NAME}</span>
+        </Link>
+      </header>
+
+      {/* Backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden",
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden
+      />
+
+      {/* Mobile drawer */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#0d1827] transition-transform duration-300 ease-in-out md:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-4">
+          <Link href={role === "admin" ? "/admin" : "/agent"} className="flex items-center gap-2.5" onClick={() => setMobileOpen(false)}>
+            <Image src={LOGO_PATH} alt={APP_NAME} width={32} height={32} className="size-8 rounded-md object-contain" priority />
+            <span className="text-sm font-semibold text-white">{APP_NAME}</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            className="rounded-md p-1.5 text-slate-400 hover:bg-white/[0.07] hover:text-white"
+            aria-label="Close menu"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Drawer nav */}
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
+          {items.map((item) => (
+            <NavLink key={item.href} item={item} forceExpanded />
+          ))}
+        </nav>
+
+        {/* Drawer user */}
+        <UserSection forceExpanded />
+      </aside>
+    </>
+  );
+
+  return (
+    <>
+      {desktopSidebar}
+      {mobileParts}
+    </>
   );
 }

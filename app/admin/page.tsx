@@ -19,102 +19,33 @@ import { formatCurrency } from "@/lib/utils";
 import { MetricCard } from "@/components/shared/MetricCard";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { FileText, CreditCard, AlertCircle, Users } from "lucide-react";
-
 import { BRAND_PRIMARY } from "@/lib/branding";
 
-const activity = [
-  {
-    time: "2026-05-04 09:12",
-    agent: "Tomás Manhiça",
-    action: "Issued policy",
-    client: "Maria Zandamela",
-    amount: formatCurrency(340),
-  },
-  {
-    time: "2026-05-03 14:40",
-    agent: "Beatriz Cossa",
-    action: "Recorded payment",
-    client: "Domingos Chauque",
-    amount: formatCurrency(179),
-  },
-  {
-    time: "2026-05-02 11:05",
-    agent: "Tomás Manhiça",
-    action: "Submitted claim",
-    client: "Armindo Matsinhe",
-    amount: "—",
-  },
-  {
-    time: "2026-05-01 08:55",
-    agent: "Tomás Manhiça",
-    action: "Issued policy",
-    client: "Hélder Tembe",
-    amount: formatCurrency(409),
-  },
-  {
-    time: "2026-04-30 16:22",
-    agent: "Beatriz Cossa",
-    action: "Recorded payment",
-    client: "Graça Abuque",
-    amount: formatCurrency(479),
-  },
-  {
-    time: "2026-04-29 10:18",
-    agent: "Tomás Manhiça",
-    action: "Issued policy",
-    client: "Ana Macuácua",
-    amount: formatCurrency(269),
-  },
-  {
-    time: "2026-04-28 15:02",
-    agent: "Tomás Manhiça",
-    action: "Submitted claim",
-    client: "Armindo Matsinhe",
-    amount: "—",
-  },
-  {
-    time: "2026-04-27 09:30",
-    agent: "Beatriz Cossa",
-    action: "Recorded payment",
-    client: "Felicidade Lopes",
-    amount: formatCurrency(209),
-  },
-  {
-    time: "2026-04-26 13:44",
-    agent: "Tomás Manhiça",
-    action: "Issued policy",
-    client: "Armindo Matsinhe",
-    amount: formatCurrency(929),
-  },
-  {
-    time: "2026-04-25 12:10",
-    agent: "Tomás Manhiça",
-    action: "Recorded payment",
-    client: "Maria Zandamela",
-    amount: formatCurrency(340),
-  },
-];
-
 export default function AdminDashboardPage() {
-  const { policies, payments, claims, agents } = useData();
+  const { policies, payments, claims, agents, clients } = useData();
 
-  const active = policies.filter((p) => p.status === "active").length;
   const now = new Date();
   const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  const active = policies.filter((p) => p.status === "active").length;
   const premiumsMonth = payments
     .filter((p) => p.status === "confirmed" && p.month_covered === ym)
     .reduce((s, p) => s + p.amount, 0);
   const pendingClaims = claims.filter((c) => c.status === "submitted").length;
   const arrears = policies.filter((p) => p.account_balance < 0).length;
 
-  const barData = [
-    { month: "Dec", amount: 4200 },
-    { month: "Jan", amount: 5100 },
-    { month: "Feb", amount: 4800 },
-    { month: "Mar", amount: 6200 },
-    { month: "Apr", amount: 7100 },
-    { month: "May", amount: 3900 },
-  ];
+  // Last 6 months of confirmed premiums derived from real payment data
+  const barData = React.useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const amount = payments
+        .filter((p) => p.status === "confirmed" && p.month_covered === key)
+        .reduce((s, p) => s + p.amount, 0);
+      return { month: d.toLocaleString("default", { month: "short" }), amount };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payments]);
 
   const pieData = [
     { name: "active", value: policies.filter((p) => p.status === "active").length },
@@ -124,7 +55,53 @@ export default function AdminDashboardPage() {
   ];
   const COLORS = ["#22c55e", "#f59e0b", "#ef4444", "#9ca3af"];
 
-  const fixLeaderboard = agents.map((a, i) => {
+  // Activity feed derived from real policies, payments, and claims
+  type ActivityRow = { time: string; agent: string; action: string; client: string; amount: string };
+  const activity = React.useMemo<ActivityRow[]>(() => {
+    const rows: ActivityRow[] = [];
+
+    for (const p of policies) {
+      const c = clients.find((x) => x.id === p.client_id);
+      const a = agents.find((x) => x.id === p.agent_id);
+      rows.push({
+        time: p.created_at,
+        agent: a?.name ?? p.agent_id,
+        action: "Issued policy",
+        client: c?.full_name ?? "—",
+        amount: formatCurrency(p.total_premium),
+      });
+    }
+
+    for (const p of payments) {
+      if (p.status !== "confirmed") continue;
+      const pol = policies.find((x) => x.id === p.policy_id);
+      const c = clients.find((x) => x.id === pol?.client_id);
+      const a = agents.find((x) => x.id === pol?.agent_id);
+      rows.push({
+        time: p.payment_date,
+        agent: a?.name ?? "—",
+        action: "Recorded payment",
+        client: c?.full_name ?? "—",
+        amount: formatCurrency(p.amount),
+      });
+    }
+
+    for (const c of claims) {
+      const pol = policies.find((x) => x.id === c.policy_id);
+      const a = agents.find((x) => x.id === pol?.agent_id);
+      rows.push({
+        time: c.submitted_at.slice(0, 10),
+        agent: a?.name ?? "—",
+        action: "Submitted claim",
+        client: c.deceased_name,
+        amount: "—",
+      });
+    }
+
+    return rows.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 10);
+  }, [policies, payments, claims, clients, agents]);
+
+  const leaderboard = agents.map((a, i) => {
     const pols = policies.filter((p) => p.agent_id === a.id);
     const prem = payments
       .filter(
@@ -140,12 +117,12 @@ export default function AdminDashboardPage() {
       branch: a.branch,
       policies: pols.filter((p) => p.created_at.slice(0, 7) === ym).length,
       premiums: formatCurrency(prem),
-      trend: "neutral" as const,
+      trend: "—",
     };
   });
 
-  const activityCols: Column<(typeof activity)[0]>[] = [
-    { header: "Time", accessorKey: "time" },
+  const activityCols: Column<ActivityRow>[] = [
+    { header: "Date", accessorKey: "time" },
     { header: "Agent", accessorKey: "agent" },
     { header: "Action", accessorKey: "action" },
     { header: "Client", accessorKey: "client" },
@@ -167,11 +144,7 @@ export default function AdminDashboardPage() {
           icon={CreditCard}
           color="green"
         />
-        <MetricCard
-          title="Pending claims"
-          value={pendingClaims}
-          icon={AlertCircle}
-        />
+        <MetricCard title="Pending claims" value={pendingClaims} icon={AlertCircle} />
         <MetricCard title="Policies in arrears" value={arrears} icon={Users} color="red" />
       </div>
 
@@ -233,7 +206,7 @@ export default function AdminDashboardPage() {
               { header: "Trend", accessorKey: "trend" },
             ] as Column<Record<string, unknown>>[]
           }
-          data={fixLeaderboard as unknown as Record<string, unknown>[]}
+          data={leaderboard as unknown as Record<string, unknown>[]}
         />
       </div>
     </div>

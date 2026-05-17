@@ -27,7 +27,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Policy } from "@/lib/types";
-import { FileText } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
+import Link from "next/link";
 
 export default function AdminPoliciesPage() {
   const router = useRouter();
@@ -137,7 +138,15 @@ export default function AdminPoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">All policies</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">All policies</h1>
+        <Button asChild className="bg-[#1892ff] text-white hover:bg-[#1892ff]/90">
+          <Link href="/admin/policies/new">
+            <Plus className="size-4" />
+            Issue New Policy
+          </Link>
+        </Button>
+      </div>
       <div className="flex flex-wrap gap-3">
         <SearchInput value={q} onChange={setQ} placeholder="Search…" className="max-w-md flex-1" />
         <Select value={status} onValueChange={setStatus}>

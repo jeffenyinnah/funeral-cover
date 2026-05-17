@@ -3,7 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import type { Client, Policy, PolicyMember } from "@/lib/types";
-import { findPlanByProductAndTier } from "@/lib/demo-data";
+import { useData } from "@/context/DataContext";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -25,7 +25,8 @@ export function CertificatePageContent({
   client: Client;
   members: PolicyMember[];
 }) {
-  const plan = findPlanByProductAndTier(policy.product_line, policy.tier);
+  const { plans } = useData();
+  const plan = plans.find((p) => p.product_line === policy.product_line && p.tier === policy.tier);
   const coverAmount = plan?.cover_amount ?? 0;
   const generatedAt = React.useMemo(() => new Date(), []);
   const systemId = policy.id.replace(/\D/g, "").slice(-6).padStart(6, "0");
@@ -65,6 +66,40 @@ export function CertificatePageContent({
     window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
   }, [certificateUrl, client.full_name]);
 
+  const handleShareSMS = React.useCallback(() => {
+    const body = encodeURIComponent(
+      `Policy certificate for ${client.full_name}: ${certificateUrl}`
+    );
+    window.location.href = `sms:?body=${body}`;
+  }, [certificateUrl, client.full_name]);
+
+  const handleShareTelegram = React.useCallback(() => {
+    const text = encodeURIComponent(
+      `Policy certificate for ${client.full_name}`
+    );
+    const url = encodeURIComponent(certificateUrl);
+    window.open(
+      `https://t.me/share/url?url=${url}&text=${text}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }, [certificateUrl, client.full_name]);
+
+  const handleNativeShare = React.useCallback(async () => {
+    try {
+      await navigator.share({
+        title: `Policy Certificate ${policy.policy_number}`,
+        text: `Policy certificate for ${client.full_name}`,
+        url: certificateUrl,
+      });
+    } catch {
+      // user cancelled or share failed — fall back silently
+    }
+  }, [certificateUrl, client.full_name, policy.policy_number]);
+
+  const supportsNativeShare =
+    typeof window !== "undefined" && typeof navigator.share === "function";
+
   return (
     <div className="bg-zinc-950 p-3 sm:p-5 print:bg-white print:p-0">
       <div className="mx-auto mb-4 flex w-full max-w-[794px] flex-wrap justify-end gap-2 print:hidden">
@@ -77,9 +112,20 @@ export function CertificatePageContent({
         <Button type="button" variant="outline" onClick={handleShareWhatsApp}>
           Share via WhatsApp
         </Button>
+        <Button type="button" variant="outline" onClick={handleShareSMS}>
+          Share via SMS
+        </Button>
+        <Button type="button" variant="outline" onClick={handleShareTelegram}>
+          Share via Telegram
+        </Button>
         <Button type="button" variant="outline" onClick={handleCopyLink}>
           Copy Link
         </Button>
+        {supportsNativeShare && (
+          <Button type="button" variant="outline" onClick={() => void handleNativeShare()}>
+            Share...
+          </Button>
+        )}
       </div>
 
       <div className="relative mx-auto min-h-[1123px] w-full max-w-[794px] rounded-sm bg-white p-6 text-black shadow-xl sm:p-10 print:min-h-0 print:max-w-none print:rounded-none print:p-8 print:shadow-none">

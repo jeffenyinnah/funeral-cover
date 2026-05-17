@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import type { Claim, Client, Payment, Policy, PolicyMember } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
-import { findPlanByProductAndTier } from "@/lib/demo-data";
+import { useData } from "@/context/DataContext";
 import { BRAND_PRIMARY } from "@/lib/branding";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { BalanceDisplay } from "@/components/shared/BalanceDisplay";
@@ -37,7 +37,8 @@ export function PolicyDetailContent({
   /** e.g. "/agent/claims" — when set, each claim row links to detail page */
   claimsBasePath?: string;
 }) {
-  const plan = findPlanByProductAndTier(policy.product_line, policy.tier);
+  const { plans } = useData();
+  const plan = plans.find((p) => p.product_line === policy.product_line && p.tier === policy.tier);
   const principalCover = plan?.cover_amount ?? 0;
 
   return (

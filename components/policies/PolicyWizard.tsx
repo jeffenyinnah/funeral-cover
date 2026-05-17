@@ -8,7 +8,6 @@ import { Check, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
-import { PLANS } from "@/lib/demo-data";
 import type { Client, Plan, Policy, PolicyMember } from "@/lib/types";
 import type { MemberRelationship } from "@/lib/types";
 import {
@@ -63,8 +62,9 @@ function newTempId() {
 
 export function PolicyWizard() {
   const router = useRouter();
-  const { agentId } = useAuth();
-  const { clients, addClient, addPolicy } = useData();
+  const { agentId, role } = useAuth();
+  const { clients, addClient, addPolicy, agents, plans } = useData();
+  const [assignedAgentId, setAssignedAgentId] = React.useState<string>("");
 
   const [step, setStep] = React.useState(1);
   const [clientTab, setClientTab] = React.useState<"existing" | "new">(
@@ -115,8 +115,8 @@ export function PolicyWizard() {
   }, [clients, clientSearch]);
 
   const linePlans = React.useMemo(
-    () => PLANS.filter((p) => p.product_line === productLine),
-    [productLine]
+    () => plans.filter((p) => p.product_line === productLine),
+    [plans, productLine]
   );
 
   const baseMonthly = selectedPlan?.single_premium ?? 0;
@@ -238,7 +238,7 @@ export function PolicyWizard() {
       status: "active",
       inception_date: inceptionDate,
       cover_start_date: coverStartDate,
-      agent_id: agentId ?? "agent-1",
+      agent_id: role === "admin" ? (assignedAgentId || agents[0]?.id || "agent-1") : (agentId ?? "agent-1"),
       created_at: inceptionDate,
     };
     const savedMembers: PolicyMember[] = members.map((m) => ({
@@ -454,6 +454,24 @@ export function PolicyWizard() {
               </form>
             </TabsContent>
           </Tabs>
+          {role === "admin" && agents.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Assign to agent</label>
+              <Select value={assignedAgentId} onValueChange={setAssignedAgentId}>
+                <SelectTrigger className="w-full max-w-sm">
+                  <SelectValue placeholder="Select agent…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} — {a.branch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="flex justify-end">
             <Button type="button" onClick={() => void goStep2()}>
               Next
@@ -817,21 +835,17 @@ export function PolicyWizard() {
               className="w-full"
               onClick={() => {
                 setSuccessOpen(false);
-                window.open(
-                  `/certificate/${policyNumber}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                );
+                router.push(`/certificate/${policyNumber}`);
               }}
             >
-              Download Certificate
+              View Certificate
             </Button>
             <Button
               type="button"
               className="w-full"
               onClick={() => {
                 setSuccessOpen(false);
-                router.push("/agent/policies");
+                router.push(role === "admin" ? "/admin/policies" : "/agent/policies");
               }}
             >
               Go to Policies
