@@ -6,11 +6,28 @@ import { toast } from "sonner";
 import type { Claim, Client, Payment, Policy, PolicyMember } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useData } from "@/context/DataContext";
+import { useAuth } from "@/context/AuthContext";
 import { BRAND_PRIMARY } from "@/lib/branding";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { BalanceDisplay } from "@/components/shared/BalanceDisplay";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -19,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, UserPlus, CreditCard, AlertCircle } from "lucide-react";
+import { FileText, UserPlus, CreditCard, AlertCircle, Edit2, XCircle } from "lucide-react";
 
 export function PolicyDetailContent({
   policy,
@@ -34,24 +51,66 @@ export function PolicyDetailContent({
   members: PolicyMember[];
   payments: Payment[];
   claims: Claim[];
-  /** e.g. "/agent/claims" — when set, each claim row links to detail page */
   claimsBasePath?: string;
 }) {
-  const { plans } = useData();
-  const plan = plans.find((p) => p.product_line === policy.product_line && p.tier === policy.tier);
+  const { plans, agents, updatePolicy } = useData();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
+  const plan = plans.find(
+    (p) => p.product_line === policy.product_line && p.tier === policy.tier
+  );
   const principalCover = plan?.cover_amount ?? 0;
+
+  // Edit policy dialog
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editDraft, setEditDraft] = React.useState({
+    status: policy.status,
+    agent_id: policy.agent_id,
+    inception_date: policy.inception_date,
+    cover_start_date: policy.cover_start_date,
+  });
+
+  const openEdit = () => {
+    setEditDraft({
+      status: policy.status,
+      agent_id: policy.agent_id,
+      inception_date: policy.inception_date,
+      cover_start_date: policy.cover_start_date,
+    });
+    setEditOpen(true);
+  };
+
+  const saveEdit = () => {
+    updatePolicy(policy.id, editDraft);
+    toast.success("Policy updated");
+    setEditOpen(false);
+  };
+
+  // Cancel policy dialog
+  const [cancelOpen, setCancelOpen] = React.useState(false);
+
+  const confirmCancel = () => {
+    updatePolicy(policy.id, { status: "cancelled" });
+    toast.success("Policy cancelled");
+    setCancelOpen(false);
+  };
 
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-1 py-1 md:px-0">
+          {/* Client details */}
           <section>
             <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
               Client details
             </h3>
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
               <Detail label="Name" value={client.full_name} />
-              <Detail label="Passport" value={client.passport_number} />
+              <Detail
+                label={client.document_type ?? "Passport"}
+                value={client.passport_number}
+              />
               <Detail label="Phone" value={client.phone} />
               <Detail label="City" value={client.city} />
               <Detail label="Province" value={client.province} />
@@ -59,6 +118,7 @@ export function PolicyDetailContent({
             </dl>
           </section>
 
+          {/* Policy details */}
           <section>
             <p
               className="mb-2 text-2xl font-semibold"
@@ -108,9 +168,23 @@ export function PolicyDetailContent({
                   totalPremium={policy.total_premium}
                 />
               </div>
+              {policy.next_of_kin_name && (
+                <>
+                  <Detail label="Next of kin" value={policy.next_of_kin_name} />
+                  <Detail
+                    label="NOK relationship"
+                    value={policy.next_of_kin_relationship ?? ""}
+                  />
+                  <Detail
+                    label="NOK phone"
+                    value={policy.next_of_kin_phone ?? ""}
+                  />
+                </>
+              )}
             </dl>
           </section>
 
+          {/* Members */}
           <section>
             <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
               Members
@@ -129,6 +203,8 @@ export function PolicyDetailContent({
                       <TableHead>Name</TableHead>
                       <TableHead>Rel.</TableHead>
                       <TableHead>DOB</TableHead>
+                      <TableHead>Doc Type</TableHead>
+                      <TableHead>Doc No.</TableHead>
                       <TableHead>Cover</TableHead>
                       <TableHead>+ / mo</TableHead>
                       <TableHead>Status</TableHead>
@@ -140,9 +216,11 @@ export function PolicyDetailContent({
                         <TableCell>{m.full_name}</TableCell>
                         <TableCell>{m.relationship}</TableCell>
                         <TableCell>{m.date_of_birth}</TableCell>
-                        <TableCell>
-                          {formatCurrency(m.cover_amount)}
+                        <TableCell>{m.document_type ?? "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {m.id_or_passport}
                         </TableCell>
+                        <TableCell>{formatCurrency(m.cover_amount)}</TableCell>
                         <TableCell>{formatCurrency(m.addon_cost)}</TableCell>
                         <TableCell>{m.status}</TableCell>
                       </TableRow>
@@ -156,14 +234,13 @@ export function PolicyDetailContent({
               variant="link"
               className="mt-1 h-auto px-0"
               style={{ color: BRAND_PRIMARY }}
-              onClick={() =>
-                toast.info("Add member flow opens from policy issuance.")
-              }
+              onClick={() => toast.info("Add member flow opens from policy issuance.")}
             >
               Add Member
             </Button>
           </section>
 
+          {/* Payment history */}
           <section>
             <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
               Payment history
@@ -211,14 +288,13 @@ export function PolicyDetailContent({
               variant="link"
               className="mt-1 h-auto px-0"
               style={{ color: BRAND_PRIMARY }}
-              onClick={() =>
-                toast.info("Use Record Payment on the Payments page.")
-              }
+              onClick={() => toast.info("Use Record Payment on the Payments page.")}
             >
               Record Payment
             </Button>
           </section>
 
+          {/* Claims */}
           <section>
             <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
               Claims
@@ -254,6 +330,7 @@ export function PolicyDetailContent({
           </section>
         </div>
 
+        {/* Footer actions */}
         <div className="flex shrink-0 flex-wrap gap-2 border-t border-border bg-background/95 p-3 backdrop-blur supports-backdrop-filter:bg-background/80">
           <Button
             type="button"
@@ -276,9 +353,7 @@ export function PolicyDetailContent({
             variant="outline"
             size="sm"
             className="flex-1"
-            onClick={() =>
-              toast.info("Add member from issuance or contact admin.")
-            }
+            onClick={() => toast.info("Add member from issuance or contact admin.")}
           >
             <UserPlus className="size-4" />
             Add Member
@@ -303,8 +378,143 @@ export function PolicyDetailContent({
             <AlertCircle className="size-4" />
             Submit Claim
           </Button>
+
+          {/* Admin-only actions */}
+          {isAdmin && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={openEdit}
+              >
+                <Edit2 className="size-4" />
+                Edit Policy
+              </Button>
+              {policy.status !== "cancelled" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                  onClick={() => setCancelOpen(true)}
+                >
+                  <XCircle className="size-4" />
+                  Cancel Policy
+                </Button>
+              )}
+            </>
+          )}
         </div>
       </div>
+
+      {/* Edit Policy Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Policy — {policy.policy_number}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select
+                value={editDraft.status}
+                onValueChange={(v) =>
+                  setEditDraft((d) => ({ ...d, status: v as Policy["status"] }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="lapsed">Lapsed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Assigned Agent</Label>
+              <Select
+                value={editDraft.agent_id}
+                onValueChange={(v) =>
+                  setEditDraft((d) => ({ ...d, agent_id: v }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} — {a.branch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Inception Date</Label>
+              <Input
+                type="date"
+                value={editDraft.inception_date}
+                onChange={(e) =>
+                  setEditDraft((d) => ({ ...d, inception_date: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cover Start Date</Label>
+              <Input
+                type="date"
+                value={editDraft.cover_start_date}
+                onChange={(e) =>
+                  setEditDraft((d) => ({ ...d, cover_start_date: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-[#1892ff] text-white hover:bg-[#1892ff]/90"
+              onClick={saveEdit}
+            >
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Policy Confirmation */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel policy?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Cancel policy <strong>{policy.policy_number}</strong>? This cannot be
+            undone.
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCancelOpen(false)}
+            >
+              Back
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmCancel}>
+              Confirm cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

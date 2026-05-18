@@ -5,7 +5,10 @@
       "PowerShell(cd \"C:\\\\Users\\\\Dell Latitude 5430\\\\OneDrive\\\\Documents\\\\Projects\\\\funeral\"; Get-ChildItem -Force | Select-Object Mode, Name, @{Label='Size';Expression={if\\($_.PSIsContainer\\){'<DIR>'}else{$_.Length}}} | Format-Table -AutoSize)",
       "PowerShell(cd \"C:\\\\Users\\\\Dell Latitude 5430\\\\OneDrive\\\\Documents\\\\Projects\\\\funeral\\\\app\"; Get-ChildItem -Recurse -Force | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Dell Latitude 5430\\\\OneDrive\\\\Documents\\\\Projects\\\\funeral\" -Recurse -Directory)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(npx tsc *)"
     ]
   }
 }

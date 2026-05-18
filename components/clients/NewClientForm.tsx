@@ -2,8 +2,10 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { Client } from "@/lib/types";
+import type { Client, DocumentType } from "@/lib/types";
 import { newClientFormSchema, type NewClientFormValues } from "@/lib/schemas/new-client";
+
+const DOCUMENT_TYPES: DocumentType[] = ["Passport", "ID", "Proof of Residence"];
 import { SA_PROVINCES } from "@/lib/provinces";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,7 @@ export function NewClientForm({
     resolver: zodResolver(newClientFormSchema),
     defaultValues: {
       full_name: "",
+      document_type: "Passport" as DocumentType,
       passport_number: "",
       date_of_birth: "",
       nationality: "Mozambican",
@@ -85,6 +88,7 @@ export function NewClientForm({
       city: v.city,
       province: v.province,
       email: v.email?.trim() || undefined,
+      document_type: v.document_type as DocumentType,
       created_by: agentId,
       created_at: today,
     };
@@ -97,7 +101,29 @@ export function NewClientForm({
         <Input {...form.register("full_name")} />
       </Field>
       <Field
-        label="Passport / ID Number"
+        label="Document Type"
+        error={form.formState.errors.document_type?.message}
+      >
+        <Select
+          value={form.watch("document_type") ?? "Passport"}
+          onValueChange={(v) =>
+            form.setValue("document_type", v as DocumentType, { shouldValidate: true })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DOCUMENT_TYPES.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field
+        label="Document Number"
         error={form.formState.errors.passport_number?.message}
       >
         <Input {...form.register("passport_number")} />

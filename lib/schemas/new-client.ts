@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const newClientFormSchema = z.object({
   full_name: z.string().min(1, "Full name is required"),
-  passport_number: z.string().min(1, "Passport or ID number is required"),
+  document_type: z.enum(["Passport", "ID", "Proof of Residence"]),
+  passport_number: z.string().min(1, "Document number is required"),
   date_of_birth: z.string().min(1, "Date of birth is required"),
   nationality: z.string().min(1, "Nationality is required"),
   phone: z.string().min(1, "Phone number is required"),

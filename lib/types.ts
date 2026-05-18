@@ -1,3 +1,5 @@
+export type DocumentType = "Passport" | "ID" | "Proof of Residence";
+
 export type ProductLine =
   | "Tumelo Nations Plan"
   | "Uhambolwethu Funeral Cover";
@@ -43,6 +45,7 @@ export interface Client {
   city: string;
   province: string;
   email?: string;
+  document_type?: DocumentType;
   created_by: string;
   created_at: string;
 }
@@ -64,6 +67,7 @@ export interface PolicyMember {
   relationship: MemberRelationship;
   date_of_birth: string;
   id_or_passport: string;
+  document_type?: DocumentType;
   addon_cost: AddonCost;
   cover_amount: MemberCoverAmount;
   cover_percentage: number;
@@ -86,6 +90,9 @@ export interface Policy {
   cover_start_date: string;
   agent_id: string;
   created_at: string;
+  next_of_kin_name?: string;
+  next_of_kin_relationship?: string;
+  next_of_kin_phone?: string;
 }
 
 export interface Payment {
